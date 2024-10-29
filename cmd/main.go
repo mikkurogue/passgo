@@ -1,22 +1,21 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"passgo/db"
 )
 
 // entry point
 func main() {
-	var d db.Database
 
-	err := d.CreateInitialConnection()
-	if err != nil {
-		fmt.Println(err)
-	}
+	reset := flag.Bool("reset", false, "Reset the data store settings and all data stored.")
+	flag.Parse()
 
-	createErr := d.CreateStoreTable()
-	if createErr != nil {
-		fmt.Println(createErr.Error())
+	var database db.Database
+
+	// bootstrap the app on first run.
+	if *reset || !db.CheckIfStoreExists() {
+		db.Bootstrap(database)
 	}
 
 	s := db.Service{
@@ -25,9 +24,9 @@ func main() {
 		Service:  "youtube.com",
 	}
 
-	d.InsertService(s)
+	database.InsertService(s)
 
-	d.GetAllServices()
+	database.GetAllServices()
 
-	d.CloseConnection()
+	database.CloseConnection()
 }

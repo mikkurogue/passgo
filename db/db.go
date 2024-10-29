@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -22,9 +21,6 @@ type Service struct {
 }
 
 func (db *Database) CreateInitialConnection() error {
-
-	// remove the database store
-	os.Remove("./store.db")
 
 	store, err := sql.Open("sqlite3", "./store.db")
 	if err != nil {
