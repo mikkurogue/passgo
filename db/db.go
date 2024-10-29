@@ -2,6 +2,8 @@ package db
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -19,7 +21,7 @@ type Service struct {
 	Service  string // The app/site/whatever you want to store
 }
 
-func (db Database) CreateInitialConnection() error {
+func (db *Database) CreateInitialConnection() error {
 
 	// remove the database store
 	os.Remove("./store.db")
@@ -28,11 +30,20 @@ func (db Database) CreateInitialConnection() error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
 
 	db.Store = store
 	db.Connected = true
 
+	fmt.Println("Connected?")
+	return nil
+}
+
+func (db *Database) CloseConnection() error {
+	if db.Connected == false {
+		return errors.New("Connection never established")
+	}
+
+	defer db.Store.Close()
 	return nil
 }
 
@@ -49,13 +60,14 @@ func (db Database) CreateStoreTable() error {
 
 	_, err := db.Store.Exec(sqlStatement)
 	if err != nil {
+		fmt.Println(err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (db Database) InsertService(service Service) error {
+func (db *Database) InsertService(service Service) error {
 
 	if db.Store == nil {
 		log.Fatal("No active connection to data store")
@@ -82,4 +94,29 @@ func (db Database) InsertService(service Service) error {
 	}
 
 	return nil
+}
+
+func (db *Database) GetAllServices() {
+
+	if db.Store == nil {
+		log.Fatal("No active connection to the data store")
+	}
+
+	rows, err := db.Store.Query("select * from foo")
+	if err != nil {
+		log.Fatal("HJello world?")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var name string
+		err = rows.Scan(&id, &name)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(id, name)
+	}
+
 }
