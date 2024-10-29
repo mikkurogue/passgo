@@ -53,10 +53,7 @@ func (db Database) CreateStoreTable() error {
 		log.Fatal("No active connection to data store")
 	}
 
-	sqlStatement := `
-  create table foo (id integer not null primary key, name text);
-  delete from foo;
-  `
+	sqlStatement := CREATE_TABLE
 
 	_, err := db.Store.Exec(sqlStatement)
 	if err != nil {
@@ -80,13 +77,13 @@ func (db *Database) InsertService(service Service) error {
 	}
 
 	// prepare query
-	stmt, err := tx.Prepare("insert into foo(id, name) values(?,?)")
+	stmt, err := tx.Prepare(INSERT_SERVICE)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	stmt.Exec(1, "test")
+	stmt.Exec(service.Username, service.Password, service.Service)
 
 	err = tx.Commit()
 	if err != nil {
@@ -102,21 +99,22 @@ func (db *Database) GetAllServices() {
 		log.Fatal("No active connection to the data store")
 	}
 
-	rows, err := db.Store.Query("select * from foo")
+	rows, err := db.Store.Query("select * from services")
 	if err != nil {
-		log.Fatal("HJello world?")
+		log.Fatal(err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var id int
-		var name string
-		err = rows.Scan(&id, &name)
+		var username, password, service string
+
+		err = rows.Scan(&id, &username, &password, &service)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Println(id, name)
+		fmt.Println(id, username, password, service)
 	}
 
 }
