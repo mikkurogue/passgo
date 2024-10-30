@@ -8,4 +8,8 @@ const (
 	INSERT_SERVICE = `
   insert into services(id, username, password, service) values(NULL,?,?,?)
   `
+
+	DELETE_SERVICE = `
+  delete from services where id = ?
+  `
 )

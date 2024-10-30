@@ -30,7 +30,7 @@ func (db *Database) CreateInitialConnection() error {
 	db.Store = store
 	db.Connected = true
 
-	fmt.Println("Connected?")
+	fmt.Println("Connected")
 	return nil
 }
 
@@ -39,6 +39,7 @@ func (db *Database) CloseConnection() error {
 		return errors.New("Connection never established")
 	}
 
+	db.Connected = false
 	defer db.Store.Close()
 	return nil
 }
@@ -46,7 +47,7 @@ func (db *Database) CloseConnection() error {
 func (db Database) CreateStoreTable() error {
 
 	if db.Store == nil {
-		log.Fatal("No active connection to data store")
+		log.Fatal("CRT:: No active connection to data store")
 	}
 
 	sqlStatement := CREATE_TABLE
@@ -63,7 +64,7 @@ func (db Database) CreateStoreTable() error {
 func (db *Database) InsertService(service Service) error {
 
 	if db.Store == nil {
-		log.Fatal("No active connection to data store")
+		log.Fatal("INS:: No active connection to data store")
 	}
 
 	// start transaction
@@ -92,7 +93,7 @@ func (db *Database) InsertService(service Service) error {
 func (db *Database) GetAllServices() {
 
 	if db.Store == nil {
-		log.Fatal("No active connection to the data store")
+		log.Fatal("GET:: No active connection to the data store")
 	}
 
 	rows, err := db.Store.Query("select * from services")
@@ -113,4 +114,25 @@ func (db *Database) GetAllServices() {
 		fmt.Println(id, username, password, service)
 	}
 
+}
+
+func (db *Database) DeleteService(id int) error {
+
+	if db.Store == nil {
+		log.Fatal("DEL:: No active connection to the data store")
+	}
+
+	result, err := db.Store.Exec(DELETE_SERVICE, id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Deleted %d row(s)", rows)
+
+	return nil
 }

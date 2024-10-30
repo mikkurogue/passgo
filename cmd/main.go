@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"passgo/db"
 )
 
@@ -16,6 +17,8 @@ func main() {
 	// bootstrap the app on first run.
 	if *reset || !db.CheckIfStoreExists() {
 		db.Bootstrap(database)
+	} else {
+		database.CreateInitialConnection()
 	}
 
 	s := db.Service{
@@ -26,6 +29,10 @@ func main() {
 
 	database.InsertService(s)
 
+	database.GetAllServices()
+
+	fmt.Println("-------- post delete ----------")
+	database.DeleteService(1)
 	database.GetAllServices()
 
 	database.CloseConnection()
