@@ -12,4 +12,12 @@ const (
 	DELETE_SERVICE = `
   delete from services where id = ?
   `
+
+	SELECT_ALL_SERVICES = `
+  select * from services
+  `
+
+	SELECT_SERVICE_BY_NAME = `
+  select username, password, service from services where service = ?
+  `
 )

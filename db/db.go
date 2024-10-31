@@ -96,7 +96,7 @@ func (db *Database) GetAllServices() {
 		log.Fatal("GET:: No active connection to the data store")
 	}
 
-	rows, err := db.Store.Query("select * from services")
+	rows, err := db.Store.Query(SELECT_ALL_SERVICES)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,6 +113,25 @@ func (db *Database) GetAllServices() {
 
 		fmt.Println(id, username, password, service)
 	}
+
+}
+
+// TODO: Figure out if this is the correct sqlite3 syntax in go
+func (db *Database) FindServiceByName(service string) Service {
+
+	if db.Store == nil {
+		log.Fatal("GET::BY_NAME:: No active connection to data store")
+	}
+
+	rows, err := db.Store.Query(SELECT_SERVICE_BY_NAME, service)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var ser Service
+	_ = rows.Scan(&ser)
+
+	return ser
 
 }
 
