@@ -20,4 +20,14 @@ const (
 	SELECT_SERVICE_BY_NAME = `
   select username, password, service from services where service = ?
   `
+
+	SELECT_SERVICE_BY_ID = `
+  select username, password, service from services where id = ?
+  `
+
+	UPDATE_SERVICE = `
+  update services
+  set username = ?, password = ?,
+  where id = ?
+  `
 )

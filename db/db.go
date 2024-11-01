@@ -135,7 +135,26 @@ func (db *Database) FindServiceByName(service string) Service {
 
 }
 
-func (db *Database) DeleteService(id int) error {
+// TODO: Figure out if this is the correct sqlite3 syntax in go
+func (db *Database) FindServiceById(id int) Service {
+
+	if db.Store == nil {
+		log.Fatal("GET::BY_NAME:: No active connection to data store")
+	}
+
+	rows, err := db.Store.Query(SELECT_SERVICE_BY_ID, id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var ser Service
+	_ = rows.Scan(&ser)
+
+	return ser
+
+}
+
+func (db *Database) DeleteService(id int) {
 
 	if db.Store == nil {
 		log.Fatal("DEL:: No active connection to the data store")
@@ -152,6 +171,8 @@ func (db *Database) DeleteService(id int) error {
 	}
 
 	log.Printf("Deleted %d row(s)", rows)
+}
 
-	return nil
+func (db *Database) UpdateService(id int) {
+	// TODO
 }
