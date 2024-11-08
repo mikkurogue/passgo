@@ -173,6 +173,29 @@ func (db *Database) DeleteService(id int) {
 	log.Printf("Deleted %d row(s)", rows)
 }
 
-func (db *Database) UpdateService(id int) {
+func (db *Database) UpdateService(id int, username, password string) {
 	// TODO
+	if db.Store == nil {
+		log.Fatal("UPD:: No active connection to the data store")
+	}
+
+	tx, err := db.Store.Begin()
+	if err != nil {
+		log.Fatal("UPD:: Something went wrong with preparing the transaction")
+	}
+
+	// prepare query
+	stmt, err := tx.Prepare(UPDATE_SERVICE)
+	if err != nil {
+		log.Fatal("UPD:: Something went wrong with preparing the query statement")
+	}
+	defer stmt.Close()
+
+	stmt.Exec(username, password, id)
+
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal("UPD:: could not update this service, does it exist?")
+	}
+
 }
