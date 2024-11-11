@@ -15,6 +15,7 @@ type Database struct {
 }
 
 type Service struct {
+	Id       int
 	Username string
 	Password string
 	Service  string // The app/site/whatever you want to store
@@ -30,7 +31,6 @@ func (db *Database) CreateInitialConnection() error {
 	db.Store = store
 	db.Connected = true
 
-	fmt.Println("Connected")
 	return nil
 }
 
@@ -90,7 +90,7 @@ func (db *Database) InsertService(service Service) error {
 	return nil
 }
 
-func (db *Database) GetAllServices() {
+func (db *Database) GetAllServices() []Service {
 
 	if db.Store == nil {
 		log.Fatal("GET:: No active connection to the data store")
@@ -102,6 +102,8 @@ func (db *Database) GetAllServices() {
 	}
 	defer rows.Close()
 
+	var list = []Service{}
+
 	for rows.Next() {
 		var id int
 		var username, password, service string
@@ -111,12 +113,19 @@ func (db *Database) GetAllServices() {
 			log.Fatal(err)
 		}
 
-		fmt.Println(id, username, password, service)
+		// fmt.Println(id, username, password, service)
+		list = append(list, Service{
+			Id:       id,
+			Username: username,
+			Password: password,
+			Service:  service,
+		})
 	}
+
+	return list
 
 }
 
-// TODO: Figure out if this is the correct sqlite3 syntax in go
 func (db *Database) FindServiceByName(service string) Service {
 
 	if db.Store == nil {
@@ -135,7 +144,6 @@ func (db *Database) FindServiceByName(service string) Service {
 
 }
 
-// TODO: Figure out if this is the correct sqlite3 syntax in go
 func (db *Database) FindServiceById(id int) Service {
 
 	if db.Store == nil {
@@ -154,7 +162,7 @@ func (db *Database) FindServiceById(id int) Service {
 
 }
 
-func (db *Database) DeleteService(id int) {
+func (db *Database) DeleteService(id int) string {
 
 	if db.Store == nil {
 		log.Fatal("DEL:: No active connection to the data store")
@@ -170,7 +178,7 @@ func (db *Database) DeleteService(id int) {
 		log.Fatal(err)
 	}
 
-	log.Printf("Deleted %d row(s)", rows)
+	return fmt.Sprintf("Deleted %d row(s)", rows)
 }
 
 func (db *Database) UpdateService(id int, username, password string) {
