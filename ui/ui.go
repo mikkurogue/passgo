@@ -83,11 +83,10 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var db db.Database
 
 			db.CreateInitialConnection()
-			// db.DeleteService()
 
 			id, _ := strconv.Atoi(m.Table.SelectedRow()[0])
 
-			return m, tea.Batch(
+			return CreateTableModel(), tea.Batch(
 				tea.Printf(db.DeleteService(id)),
 			)
 		case "enter":
