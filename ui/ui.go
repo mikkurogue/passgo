@@ -1,14 +1,12 @@
 package ui
 
 import (
-	"passgo/db"
-	"strconv"
-
-	// "strconv"
-
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"passgo/db"
+	"passgo/pkg"
+	"strconv"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -16,7 +14,8 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type TableModel struct {
-	Table table.Model
+	Table   table.Model
+	isEmpty bool
 }
 
 func CreateTableModel() TableModel {
@@ -37,6 +36,8 @@ func CreateTableModel() TableModel {
 		rows = append(rows, table.Row{strconv.Itoa(srv.Id), srv.Service, srv.Username})
 	}
 
+	isEmpty := len(rows) == 0
+
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithRows(rows),
@@ -56,7 +57,7 @@ func CreateTableModel() TableModel {
 		Bold(false)
 	t.SetStyles(s)
 
-	m := TableModel{t}
+	m := TableModel{t, isEmpty}
 
 	return m
 }
@@ -64,7 +65,10 @@ func CreateTableModel() TableModel {
 func (m TableModel) Init() tea.Cmd { return nil }
 
 func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	copier := &pkg.ClipboardCopier{}
+
 	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -77,16 +81,32 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "n":
-
 			return InitialCreateFormModal(), nil
+		case "m":
+			copy(copier, m)
+			return m, nil
 		case "d":
+			if len(m.Table.Rows()) == 0 {
+				// do not allow deleting here as it will result in panic
+				return m, nil
+			}
 			var db db.Database
 
 			db.CreateInitialConnection()
-			// FIXME: figure out how to re-start the table
 			id, _ := strconv.Atoi(m.Table.SelectedRow()[0])
 			db.DeleteService(id)
-			return CreateTableModel(), nil
+			tea.ClearScreen()
+			list := db.GetAllServices()
+			rows := []table.Row{}
+
+			for _, srv := range list {
+				rows = append(rows, table.Row{strconv.Itoa(srv.Id), srv.Service, srv.Username})
+			}
+
+			m.isEmpty = len(rows) == 0
+			m.Table.SetRows(rows)
+
+			return m, tea.ClearScreen
 		case "enter":
 			return m, tea.Batch(
 				tea.Printf("Let's go to %s!", m.Table.SelectedRow()[0]),
@@ -99,6 +119,10 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m TableModel) View() string {
 
+	if m.isEmpty {
+		return "No data available.\nPress 'n' to add a new entry!"
+	}
+
 	s := baseStyle.Render(m.Table.View())
 
 	s += "\n"
@@ -107,4 +131,16 @@ func (m TableModel) View() string {
 	s += "Press q to exit"
 
 	return s
+}
+
+func copy(copier *pkg.ClipboardCopier, m TableModel) {
+
+	var index = 2
+
+	if err := copier.Copy(m.Table.SelectedRow()[index]); err != nil {
+		tea.Printf("Uh oh, something went wrong copying to clipboard! Err: %v", err)
+	} else {
+		tea.Printf("Copied %s to clipboard!", m.Table.SelectedRow()[index])
+	}
+
 }
