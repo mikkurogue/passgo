@@ -19,6 +19,9 @@ type TableModel struct {
 }
 
 func CreateTableModel() TableModel {
+	// clear the screen for consistent ui experience
+	tea.ClearScreen()
+
 	columns := []table.Column{
 		{Title: "Id", Width: 10},
 		{Title: "Service", Width: 15},
@@ -106,6 +109,10 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.isEmpty = len(rows) == 0
 			m.Table.SetRows(rows)
 
+			// seems counter intuitive atm but this essentially
+			// refreshes the model with a clear screen
+			// causing the ui to re-render instead of overlap tables like
+			// it did before
 			return m, tea.ClearScreen
 		case "enter":
 			return m, tea.Batch(

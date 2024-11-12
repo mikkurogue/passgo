@@ -12,8 +12,6 @@ import (
 // entry point
 func main() {
 
-	tea.ClearScreen()
-
 	reset := flag.Bool("reset", false, "Reset the data store settings and all data stored.")
 	flag.Parse()
 
