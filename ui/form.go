@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"passgo/db"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -74,7 +75,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			if m.focused == len(m.inputs)-1 {
-				return m, tea.Quit
+				m.addService()
+				return CreateTableModel(), nil
 			}
 			m.nextInput()
 		case tea.KeyEsc:
@@ -134,4 +136,16 @@ func (m *model) prevInput() {
 	if m.focused < 0 {
 		m.focused = len(m.inputs) - 1
 	}
+}
+
+func (m *model) addService() {
+	var database db.Database
+	database.CreateInitialConnection()
+
+	database.InsertService(db.Service{
+		Username: m.inputs[usr].Value(),
+		Password: m.inputs[pw].Value(),
+		Service:  m.inputs[srv].Value(),
+	})
+	database.CloseConnection()
 }
