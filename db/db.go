@@ -162,7 +162,7 @@ func (db *Database) FindServiceById(id int) Service {
 
 }
 
-func (db *Database) DeleteService(id int) string {
+func (db *Database) DeleteService(id int) {
 
 	if db.Store == nil {
 		log.Fatal("DEL:: No active connection to the data store")
@@ -178,7 +178,7 @@ func (db *Database) DeleteService(id int) string {
 		log.Fatal(err)
 	}
 
-	return fmt.Sprintf("Deleted %d row(s)", rows)
+	fmt.Printf("Deleted %d row(s)", rows)
 }
 
 func (db *Database) UpdateService(id int, username, password string) {

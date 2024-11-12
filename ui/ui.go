@@ -83,12 +83,10 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var db db.Database
 
 			db.CreateInitialConnection()
-
+			// FIXME: figure out how to re-start the table
 			id, _ := strconv.Atoi(m.Table.SelectedRow()[0])
-
-			return CreateTableModel(), tea.Batch(
-				tea.Printf(db.DeleteService(id)),
-			)
+			db.DeleteService(id)
+			return CreateTableModel(), nil
 		case "enter":
 			return m, tea.Batch(
 				tea.Printf("Let's go to %s!", m.Table.SelectedRow()[0]),
