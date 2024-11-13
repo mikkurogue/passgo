@@ -22,7 +22,7 @@ const (
   `
 
 	SELECT_SERVICE_BY_ID = `
-  select username, password, service from services where id = ?
+  select id, username, password, service from services where id = ?
   `
 
 	UPDATE_SERVICE = `

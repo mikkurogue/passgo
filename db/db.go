@@ -144,22 +144,29 @@ func (db *Database) FindServiceByName(service string) Service {
 
 }
 
-func (db *Database) FindServiceById(id int) Service {
-
+func (db *Database) FindServiceById(id int) (Service, error) {
 	if db.Store == nil {
-		log.Fatal("GET::BY_NAME:: No active connection to data store")
+		log.Fatal("GET::BY_ID:: No active connection to data store")
 	}
 
 	rows, err := db.Store.Query(SELECT_SERVICE_BY_ID, id)
 	if err != nil {
-		log.Fatal(err)
+		return Service{}, err
+	}
+	defer rows.Close()
+
+	var srv Service
+
+	if rows.Next() {
+		err := rows.Scan(&srv.Id, &srv.Username, &srv.Password, &srv.Service)
+		if err != nil {
+			return Service{}, err
+		}
+	} else {
+		return Service{}, fmt.Errorf("no service found with ID %d", id)
 	}
 
-	var ser Service
-	_ = rows.Scan(&ser)
-
-	return ser
-
+	return srv, nil
 }
 
 func (db *Database) DeleteService(id int) {

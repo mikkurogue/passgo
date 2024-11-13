@@ -1,12 +1,14 @@
 package ui
 
 import (
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"log"
 	"passgo/db"
 	"passgo/pkg"
 	"strconv"
+
+	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -14,9 +16,23 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type TableModel struct {
-	Table   table.Model
-	isEmpty bool
+	Table           table.Model
+	showModal       bool
+	isEmpty         bool
+	selectedService *db.Service
 }
+
+var (
+	modalBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("62")).
+			Padding(1, 2).
+			Width(50)
+
+	modalTextStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("69")).
+			Bold(true)
+)
 
 func CreateTableModel() TableModel {
 	// clear the screen for consistent ui experience
@@ -60,7 +76,7 @@ func CreateTableModel() TableModel {
 		Bold(false)
 	t.SetStyles(s)
 
-	m := TableModel{t, isEmpty}
+	m := TableModel{t, isEmpty, false, nil}
 
 	return m
 }
@@ -71,20 +87,53 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	copier := &pkg.ClipboardCopier{}
 
 	var cmd tea.Cmd
+	var database db.Database
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
-			if m.Table.Focused() {
+			if m.showModal {
+				// make sure we dont just unfocus the table but close the modal IF its open
+				m.showModal = false
+				m.selectedService = nil
+			} else if m.Table.Focused() {
 				m.Table.Blur()
 			} else {
 				m.Table.Focus()
 			}
 		case "q", "ctrl+c":
+
 			return m, tea.Quit
 		case "n":
 			return InitialCreateFormModal(), nil
+		case "v":
+			if selectedRow := m.Table.SelectedRow(); len(selectedRow) > 0 {
+
+				database.CreateInitialConnection()
+
+				id, err := strconv.Atoi(selectedRow[0])
+				if err != nil {
+					m.showModal = false
+					m.selectedService = nil
+					log.Fatal("Somehow could not select the row properly for look up")
+				}
+
+				service, err := database.FindServiceById(id)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				m.selectedService = &db.Service{
+					Id:       service.Id,
+					Username: service.Username,
+					Password: service.Password,
+					Service:  service.Service,
+				}
+
+				m.showModal = true
+			}
+			return m, nil
 		case "m":
 			copy(copier, m)
 			return m, nil
@@ -93,13 +142,12 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// do not allow deleting here as it will result in panic
 				return m, nil
 			}
-			var db db.Database
 
-			db.CreateInitialConnection()
+			database.CreateInitialConnection()
 			id, _ := strconv.Atoi(m.Table.SelectedRow()[0])
-			db.DeleteService(id)
+			database.DeleteService(id)
 			tea.ClearScreen()
-			list := db.GetAllServices()
+			list := database.GetAllServices()
 			rows := []table.Row{}
 
 			for _, srv := range list {
@@ -120,14 +168,21 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 		}
 	}
-	m.Table, cmd = m.Table.Update(msg)
+
+	if !m.showModal {
+		m.Table, cmd = m.Table.Update(msg)
+	}
+
 	return m, cmd
 }
 
 func (m TableModel) View() string {
+	if m.showModal && m.selectedService != nil {
+		return lipgloss.PlaceHorizontal(80, lipgloss.Center, renderModal(m.selectedService))
+	}
 
 	if m.isEmpty {
-		return "No data available.\nPress 'n' to add a new entry!"
+		return lipgloss.PlaceHorizontal(80, lipgloss.Center, "No data available.\nPress 'n' to add a new entry!")
 	}
 
 	s := baseStyle.Render(m.Table.View())
@@ -137,7 +192,7 @@ func (m TableModel) View() string {
 	s += "\n"
 	s += "Press q to exit"
 
-	return s
+	return lipgloss.PlaceHorizontal(80, lipgloss.Center, s)
 }
 
 func copy(copier *pkg.ClipboardCopier, m TableModel) {
@@ -150,4 +205,25 @@ func copy(copier *pkg.ClipboardCopier, m TableModel) {
 		tea.Printf("Copied %s to clipboard!", m.Table.SelectedRow()[index])
 	}
 
+}
+
+func renderModal(service *db.Service) string {
+	if service == nil {
+		return ""
+	}
+
+	// Content of the modal
+	content := modalTextStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			"Service Details",
+			"",
+			"ID: "+strconv.Itoa(service.Id),
+			"Username: "+service.Username,
+			"Password: "+service.Password,
+			"Service: "+service.Service,
+		),
+	)
+
+	// Wrap content with the border style
+	return modalBorder.Render(content)
 }
