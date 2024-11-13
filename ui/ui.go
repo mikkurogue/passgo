@@ -5,8 +5,10 @@ import (
 	"passgo/db"
 	"passgo/pkg"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -17,7 +19,9 @@ var baseStyle = lipgloss.NewStyle().
 
 type TableModel struct {
 	Table           table.Model
+	searchInput     textinput.Model
 	showModal       bool
+	showSearch      bool
 	isEmpty         bool
 	selectedService *db.Service
 }
@@ -76,7 +80,19 @@ func CreateTableModel() TableModel {
 		Bold(false)
 	t.SetStyles(s)
 
-	m := TableModel{t, isEmpty, false, nil}
+	ti := textinput.New()
+	ti.Placeholder = "[Search for a service...]"
+	ti.Focus()
+	ti.Prompt = ""
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	ti.TextStyle = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), true).
+		BorderForeground(lipgloss.Color("5")).
+		Align(lipgloss.Center)
+
+	m := TableModel{t, ti, isEmpty, false, false, nil}
 
 	return m
 }
@@ -97,16 +113,27 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// make sure we dont just unfocus the table but close the modal IF its open
 				m.showModal = false
 				m.selectedService = nil
+			} else if m.showSearch {
+				m.showSearch = false
 			} else if m.Table.Focused() {
 				m.Table.Blur()
 			} else {
 				m.Table.Focus()
 			}
 		case "q", "ctrl+c":
-
 			return m, tea.Quit
 		case "n":
 			return InitialCreateFormModal(), nil
+		case "/":
+			m.showSearch = !m.showSearch
+
+			// rows := m.Table.Rows()
+			//
+			// for i, s := range rows {
+			// 	log.Println(i, s)
+			// }
+			//
+			return m, nil
 		case "v":
 			if selectedRow := m.Table.SelectedRow(); len(selectedRow) > 0 {
 
@@ -169,6 +196,12 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if m.showSearch {
+		var inputCmd tea.Cmd
+		m.searchInput, inputCmd = m.searchInput.Update(msg)
+		return m, inputCmd
+	}
+
 	if !m.showModal {
 		m.Table, cmd = m.Table.Update(msg)
 	}
@@ -177,12 +210,18 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m TableModel) View() string {
+
 	if m.showModal && m.selectedService != nil {
 		return lipgloss.PlaceHorizontal(80, lipgloss.Center, renderModal(m.selectedService))
 	}
 
 	if m.isEmpty {
 		return lipgloss.PlaceHorizontal(80, lipgloss.Center, "No data available.\nPress 'n' to add a new entry!")
+	}
+
+	if m.showSearch {
+
+		return lipgloss.PlaceHorizontal(80, lipgloss.Center, renderSearchInput(m))
 	}
 
 	s := baseStyle.Render(m.Table.View())
@@ -205,6 +244,18 @@ func copy(copier *pkg.ClipboardCopier, m TableModel) {
 		tea.Printf("Copied %s to clipboard!", m.Table.SelectedRow()[index])
 	}
 
+}
+
+func renderSearchInput(m TableModel) string {
+	var b strings.Builder
+
+	b.WriteString(lipgloss.NewStyle().
+		Align(lipgloss.Center).
+		Border(lipgloss.NormalBorder(), true).
+		BorderForeground(lipgloss.Color("5")).
+		Render(m.searchInput.View()))
+
+	return b.String()
 }
 
 func renderModal(service *db.Service) string {
