@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"log"
 	"passgo/db"
 	"passgo/pkg"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -18,13 +20,17 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type TableModel struct {
-	Table           table.Model
-	searchInput     textinput.Model
-	showModal       bool
-	showSearch      bool
-	isEmpty         bool
-	selectedService *db.Service
+	Table             table.Model
+	searchInput       textinput.Model
+	showModal         bool
+	showSearch        bool
+	isEmpty           bool
+	selectedService   *db.Service
+	Notification      string
+	NotificationTimer *time.Timer
 }
+
+type NotificationTimeoutMsg struct{}
 
 var (
 	modalBorder = lipgloss.NewStyle().
@@ -92,7 +98,7 @@ func CreateTableModel() TableModel {
 		BorderForeground(lipgloss.Color("5")).
 		Align(lipgloss.Center)
 
-	m := TableModel{t, ti, isEmpty, false, false, nil}
+	m := TableModel{t, ti, isEmpty, false, false, nil, "", nil}
 
 	return m
 }
@@ -117,6 +123,8 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showSearch = false
 			} else if m.Table.Focused() {
 				m.Table.Blur()
+			} else if m.Notification != "" {
+				m.Notification = ""
 			} else {
 				m.Table.Focus()
 			}
@@ -126,13 +134,6 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return InitialCreateFormModal(), nil
 		case "/":
 			m.showSearch = !m.showSearch
-
-			// rows := m.Table.Rows()
-			//
-			// for i, s := range rows {
-			// 	log.Println(i, s)
-			// }
-			//
 			return m, nil
 		case "v":
 			if selectedRow := m.Table.SelectedRow(); len(selectedRow) > 0 {
@@ -157,12 +158,16 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Password: service.Password,
 					Service:  service.Service,
 				}
-
 				m.showModal = true
 			}
 			return m, nil
-		case "m":
-			copy(copier, m)
+		case "c":
+			id, err := strconv.Atoi(m.Table.SelectedRow()[0])
+			if err != nil {
+				m.Notification = "Invalid row selection"
+				return m, nil
+			}
+			copy(&m, copier, id)
 			return m, nil
 		case "d":
 			if len(m.Table.Rows()) == 0 {
@@ -194,6 +199,9 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tea.Printf("Let's go to %s!", m.Table.SelectedRow()[0]),
 			)
 		}
+	case NotificationTimeoutMsg:
+		m.Notification = ""
+		return m, nil
 	}
 
 	if m.showSearch {
@@ -210,40 +218,65 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m TableModel) View() string {
+	var view string
 
+	// Always start with the table (or modal/search as necessary)
 	if m.showModal && m.selectedService != nil {
-		return lipgloss.PlaceHorizontal(80, lipgloss.Center, renderModal(m.selectedService))
+		view = lipgloss.PlaceHorizontal(80, lipgloss.Center, renderModal(m.selectedService))
+	} else if m.isEmpty {
+		view = lipgloss.PlaceHorizontal(80, lipgloss.Center, "No data available.\nPress 'n' to add a new entry!")
+	} else if m.showSearch {
+		view = lipgloss.PlaceHorizontal(80, lipgloss.Center, renderSearchInput(m))
+	} else {
+		view = baseStyle.Render(m.Table.View()) + "\n"
+		view += m.Table.HelpView() + "\n"
+		view += "Press q to exit"
+		view = lipgloss.PlaceHorizontal(80, lipgloss.Center, view)
 	}
 
-	if m.isEmpty {
-		return lipgloss.PlaceHorizontal(80, lipgloss.Center, "No data available.\nPress 'n' to add a new entry!")
+	// Add the notification at the bottom if it exists
+	if m.Notification != "" {
+		notificationStyle := lipgloss.NewStyle().
+			Background(lipgloss.Color("2")).
+			Foreground(lipgloss.Color("0")).
+			Padding(1).
+			Align(lipgloss.Center)
+
+		notification := notificationStyle.Render(m.Notification)
+		view += "\n\n" + notification
 	}
 
-	if m.showSearch {
-
-		return lipgloss.PlaceHorizontal(80, lipgloss.Center, renderSearchInput(m))
-	}
-
-	s := baseStyle.Render(m.Table.View())
-
-	s += "\n"
-	s += m.Table.HelpView()
-	s += "\n"
-	s += "Press q to exit"
-
-	return lipgloss.PlaceHorizontal(80, lipgloss.Center, s)
+	return view
 }
 
-func copy(copier *pkg.ClipboardCopier, m TableModel) {
+func copy(m *TableModel, copier *pkg.ClipboardCopier, rowId int) tea.Cmd {
+	var database db.Database
 
-	var index = 2
-
-	if err := copier.Copy(m.Table.SelectedRow()[index]); err != nil {
-		tea.Printf("Uh oh, something went wrong copying to clipboard! Err: %v", err)
-	} else {
-		tea.Printf("Copied %s to clipboard!", m.Table.SelectedRow()[index])
+	database.CreateInitialConnection()
+	srv, err := database.FindServiceById(rowId)
+	if err != nil {
+		m.Notification = "No service found for the selected row"
+		return nil
 	}
 
+	if err := copier.Copy(srv.Password); err != nil {
+		m.Notification = fmt.Sprintf("Could not copy password. Error: %v", err)
+	} else {
+		m.Notification = fmt.Sprintf("Copied %s to clipboard", srv.Service)
+	}
+
+	// Stop previous timer if active
+	if m.NotificationTimer != nil {
+		m.NotificationTimer.Stop()
+	}
+
+	// Start a new timer
+	m.NotificationTimer = time.NewTimer(3 * time.Second)
+
+	return func() tea.Msg {
+		<-m.NotificationTimer.C
+		return NotificationTimeoutMsg{}
+	}
 }
 
 func renderSearchInput(m TableModel) string {
