@@ -2,7 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"log"
 	"passgo/db"
+	"passgo/pkg"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -142,9 +144,14 @@ func (m *model) addService() {
 	var database db.Database
 	database.CreateInitialConnection()
 
+	encrypted, err := pkg.Encrypt(m.inputs[pw].Value(), pkg.KEY)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	database.InsertService(db.Service{
 		Username: m.inputs[usr].Value(),
-		Password: m.inputs[pw].Value(),
+		Password: encrypted,
 		Service:  m.inputs[srv].Value(),
 	})
 	database.CloseConnection()

@@ -259,7 +259,12 @@ func copy(m *TableModel, copier *pkg.ClipboardCopier, rowId int) tea.Cmd {
 		return nil
 	}
 
-	if err := copier.Copy(srv.Password); err != nil {
+	decrypted, err := pkg.Decrypt(srv.Password, pkg.KEY)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := copier.Copy(decrypted); err != nil {
 		m.Notification = fmt.Sprintf("Could not copy password. Error: %v", err)
 	} else {
 		m.Notification = fmt.Sprintf("Copied %s to clipboard", srv.Service)
