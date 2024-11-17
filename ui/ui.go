@@ -259,7 +259,7 @@ func copy(m *TableModel, copier *pkg.ClipboardCopier, rowId int) tea.Cmd {
 		return nil
 	}
 
-	decrypted, err := pkg.Decrypt(srv.Password, pkg.KEY)
+	decrypted, err := pkg.Decrypt(srv.Password, pkg.Key)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -144,7 +144,7 @@ func (m *model) addService() {
 	var database db.Database
 	database.CreateInitialConnection()
 
-	encrypted, err := pkg.Encrypt(m.inputs[pw].Value(), pkg.KEY)
+	encrypted, err := pkg.Encrypt(m.inputs[pw].Value(), pkg.Key)
 	if err != nil {
 		log.Fatal(err)
 	}
